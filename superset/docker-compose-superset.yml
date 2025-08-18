@@ -1,0 +1,16 @@
+services:
+  superset:
+    image: apache/superset
+    container_name: superset
+    ports:
+      - "8088:8088"
+    volumes:
+      - superset:/app/superset_home
+    environment:
+      SUPERSET_ENV: production
+      SUPERSET_SECRET_KEY: "eBD8j2N08VVACoDbnr19sPjRG3+eNW5zbOTvj/yzDiS40xhXUTthgZpY"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  superset:

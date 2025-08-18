@@ -1,0 +1,7 @@
+__pycache__
+venv
+webui/.dart_tool
+webui/tools/flutter
+webui/pubspec.lock
+webui/build
+.env

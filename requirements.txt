@@ -1,0 +1,8 @@
+python-dotenv==1.0.1
+seleniumbase
+psycopg2
+asyncpg
+fastapi
+uvicorn
+loguru==0.7.0
+psutil
