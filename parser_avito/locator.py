@@ -9,3 +9,6 @@ class LocatorAvito:
     PRICE = (By.CSS_SELECTOR, "[itemprop='price']")
     RGEO = (By.CSS_SELECTOR, ".xLPJ6")
     COMP = (By.CSS_SELECTOR, ".TTiHl")
+    INFO = (By.CSS_SELECTOR, "ul.HRzg1 li.cHzV4")
+    LATLON = (By.CSS_SELECTOR, ".V3YQs.j2TYE")
+    VIEWS = (By.CSS_SELECTOR, "")

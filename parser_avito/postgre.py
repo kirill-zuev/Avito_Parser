@@ -70,6 +70,7 @@ class PostgresHandler:
             self.cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS {self.table_name} (
                     id SERIAL PRIMARY KEY,
+                    date_ DATE NOT NULL,
                     adsid BIGINT NOT NULL,
                     title TEXT NOT NULL,
                     price BIGINT NOT NULL,
@@ -80,7 +81,33 @@ class PostgresHandler:
                     apartment_type TEXT,
                     square_meters BIGINT,
                     beds BIGINT,
-                    days BIGINT NOT NULL
+                    days BIGINT NOT NULL,
+                    lat TEXT,
+                    lon TEXT,
+                    
+                    rooms TEXT,
+                    beds_description TEXT,
+                    total_area TEXT,
+                    floor TEXT,
+                    balcony_or_loggia TEXT,
+                    window_view TEXT,
+                    appliances TEXT,
+                    internet_tv TEXT,
+                    comforts TEXT,
+                    deposit TEXT,
+                    monthly_rent TEXT,
+                    check_in_time TEXT,
+                    check_out_time TEXT,
+                    max_guests TEXT,
+                    contactless_checkin TEXT,
+                    children_allowed TEXT,
+                    pets_allowed TEXT,
+                    smoking_allowed TEXT,
+                    parties_allowed TEXT,
+                    documents_provided TEXT,
+                    total_floors TEXT,
+                    has_elevator TEXT,
+                    parking_available TEXT
                     )
                 """)
             logger.info(f"Таблица {self.table_name} создана или уже существует")
@@ -90,10 +117,22 @@ class PostgresHandler:
     def update_database(self, data):
         try:
             apartment_type, square_meters, beds = validator.validate_apartment(data["name"])
-            item = (int(data["adsid"]), data["name"], int(data["price"]), data["url"], data["description"], data["rgeo"], data["comp"], apartment_type, square_meters, beds, data["days"])
+            item = (data["date_"], int(data["adsid"]), data["name"], int(data["price"]), data["url"], data["description"], data["rgeo"], data["comp"], apartment_type, square_meters, beds, data["days"], data["lat"], data["lon"],
+                    data['количество_комнат'], data['кровати'], data['общая_площадь'], data['этаж'], data['балкон_или_лоджия'],
+                    data['вид_из_окна'], data['техника'], data['интернет_и_тв'], data['комфорт'], data['залог'], data['возможна_помесячная_аренда'],
+                    data['заезд_после'], data['выезд_до'], data['количество_гостей'], data['бесконтактное_заселение'], 
+                    data['можно_с_детьми'], data['можно_с_животными'], data['можно_курить'], data['разрешены_вечеринки'],
+                    data['есть_отчётные_документы'], data['этажей_в_доме'], data['лифт'], data['парковка'])
             self.cursor.execute(
-                f"INSERT INTO {self.table_name} (adsid, title, price, url, description, address, competitor, apartment_type, square_meters, beds, days) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                f"""INSERT INTO {self.table_name} (date_, adsid, title, price, url, description, address, competitor, apartment_type, square_meters, beds, days, lat, lon,
+                rooms, beds_description, total_area, floor, balcony_or_loggia,
+                window_view, appliances, internet_tv, comforts, deposit, monthly_rent,
+                check_in_time, check_out_time, max_guests, contactless_checkin,
+                children_allowed, pets_allowed, smoking_allowed, parties_allowed,
+                documents_provided, total_floors, has_elevator, parking_available) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                 item
             )
             logger.info(f'{data["url"]=}')

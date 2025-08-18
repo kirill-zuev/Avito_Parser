@@ -42,6 +42,7 @@ pids = {"main": None}
 class AvitoParser:
     def __init__(self,
                  url: list,
+                 date_: str,
                  days: int,
                  count: int = 5,
                  max_price: int = 0,
@@ -52,6 +53,7 @@ class AvitoParser:
                  fast_speed: int = 0
                  ):
         self.url = url
+        self.date_ = date_
         self.days = days
         self.count = count
         self.data = []
@@ -186,6 +188,7 @@ class ExtendedParser(AvitoParser):
                 logger.debug(f"Пропускаю {ads_id=} {url=}")
                 continue
             data = {
+                'date_': self.date_,
                 'name': name,
                 'description': description,
                 'url': url,
@@ -209,6 +212,33 @@ class ExtendedParser(AvitoParser):
 
         data["rgeo"] = ''
         data["comp"] = ''
+        data["lat"] = ''
+        data["lon"] = ''
+        data["views"] = ''
+
+        data['количество_комнат'] = ''
+        data['кровати'] = ''
+        data['общая_площадь'] = ''
+        data['этаж'] = ''
+        data['вид_из_окна'] = ''
+        data['техника'] = ''
+        data['интернет_и_тв'] = ''
+        data['комфорт'] = ''
+        data['залог'] = ''
+        data['возможна_помесячная_аренда'] = ''
+        data['заезд_после'] = ''
+        data['выезд_до'] = ''
+        data['количество_гостей'] = ''
+        data['бесконтактное_заселение'] = ''
+        data['можно_с_детьми'] = ''
+        data['можно_с_животными'] = ''
+        data['можно_курить'] = ''
+        data['разрешены_вечеринки'] = ''
+        data['есть_отчётные_документы'] = ''
+        data['этажей_в_доме'] = ''
+        data['лифт'] = ''
+        data['парковка'] = ''
+        data['балкон_или_лоджия'] = ''
         try:
             if self.driver.find_elements(LocatorAvito.RGEO[1], by="css selector"):
                 rgeo = self.driver.find_element(LocatorAvito.RGEO[1], by="css selector").text
@@ -216,6 +246,17 @@ class ExtendedParser(AvitoParser):
             if self.driver.find_elements(LocatorAvito.COMP[1], by="css selector"):
                 comp = self.driver.find_element(LocatorAvito.COMP[1], by="css selector").text
                 data["comp"] = comp.lower()
+            if self.driver.find_elements(LocatorAvito.LATLON[1], by="css selector"):
+                mape = self.driver.find_element(LocatorAvito.LATLON[1], by="css selector")
+                data["lat"] = mape.get_attribute("data-map-lat")
+                data["lon"] = mape.get_attribute("data-map-lon")
+            if self.driver.find_elements(LocatorAvito.INFO[1], by="css selector"):
+                char_list = self.driver.find_elements(LocatorAvito.INFO[1], by="css selector")
+                for item in char_list:
+                    name = item.find_element(By.CSS_SELECTOR, "span.Lg7Ax").text.replace(":", "").strip()
+                    value = item.text.replace(name + ":", "").strip()
+                    key = name.lower().replace(" ", "_")
+                    data[key] = value
         except Exception:
             if "Доступ ограничен" in self.driver.get_title():
                 logger.info("Доступ ограничен: проблема с IP")
@@ -225,10 +266,11 @@ class ExtendedParser(AvitoParser):
         return data
 
 
-def parse_url(url, days, proxy):
+def parse_url(url, today, days, proxy):
     try:
         ExtendedParser(
             url=url,
+            date_=today,
             days=days,
             count=int(NUM_ADS),
             max_price=MAX_PRICE,
@@ -242,14 +284,14 @@ def parse_url(url, days, proxy):
         logger.debug(f"{error}")
 
 
-def main(proxy, urls=[]):
+def main(proxy, today, urls=[]):
     processes = []
     try:
         for item in urls:
             url, days = item["url"], item["days"]
             process = threading.Thread(
                 target=parse_url,
-                args=(url, days, proxy)
+                args=(url, today, days, proxy)
             )
             process.start()
             processes = []
@@ -274,7 +316,7 @@ def multi_parsing(date_, n, proxy):
                 urls = validator.generate_avito(n, today)
                 logger.info(f"{urls}")
                 postgres_handler.create_database(today)
-                main(proxy, urls)
+                main(proxy, today, urls)
                 
             today = datetime.now().date()
     except Exception as error:
