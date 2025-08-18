@@ -3,9 +3,14 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from loguru import logger
 
+from routers import clean_proc
+
 import routers
 
 import uvicorn
+import psutil
+import signal
+import sys
 import os
 
 load_dotenv()
@@ -30,9 +35,19 @@ app.add_middleware(
 app.include_router(routers.router, prefix=BASE_PREFIX)
 
 
+def signal_handler(sig, frame):
+    clean_proc()
+    sys.exit(0)
+
+
 if __name__ == '__main__':
+    signal.signal(signal.SIGINT, signal_handler)
+
     host = '0.0.0.0'
 
     logger.info(f'Сервис запущен ip: {host}:{PARSERPORT}')
 
-    uvicorn.run(app, host=host, port=PARSERPORT)
+    try:
+        uvicorn.run(app, host=host, port=PARSERPORT)
+    except KeyboardInterrupt:
+        clean_proc()

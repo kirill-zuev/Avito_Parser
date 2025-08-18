@@ -84,6 +84,7 @@ class PostgresHandler:
                     days BIGINT NOT NULL,
                     lat TEXT,
                     lon TEXT,
+                    views BIGINT,
                     
                     rooms TEXT,
                     beds_description TEXT,
@@ -117,20 +118,20 @@ class PostgresHandler:
     def update_database(self, data):
         try:
             apartment_type, square_meters, beds = validator.validate_apartment(data["name"])
-            item = (data["date_"], int(data["adsid"]), data["name"], int(data["price"]), data["url"], data["description"], data["rgeo"], data["comp"], apartment_type, square_meters, beds, data["days"], data["lat"], data["lon"],
+            item = (data["date_"], int(data["adsid"]), data["name"], int(data["price"]), data["url"], data["description"], data["rgeo"], data["comp"], apartment_type, square_meters, beds, data["days"], data["lat"], data["lon"], data["views"],
                     data['количество_комнат'], data['кровати'], data['общая_площадь'], data['этаж'], data['балкон_или_лоджия'],
                     data['вид_из_окна'], data['техника'], data['интернет_и_тв'], data['комфорт'], data['залог'], data['возможна_помесячная_аренда'],
                     data['заезд_после'], data['выезд_до'], data['количество_гостей'], data['бесконтактное_заселение'], 
                     data['можно_с_детьми'], data['можно_с_животными'], data['можно_курить'], data['разрешены_вечеринки'],
                     data['есть_отчётные_документы'], data['этажей_в_доме'], data['лифт'], data['парковка'])
             self.cursor.execute(
-                f"""INSERT INTO {self.table_name} (date_, adsid, title, price, url, description, address, competitor, apartment_type, square_meters, beds, days, lat, lon,
+                f"""INSERT INTO {self.table_name} (date_, adsid, title, price, url, description, address, competitor, apartment_type, square_meters, beds, days, lat, lon, views,
                 rooms, beds_description, total_area, floor, balcony_or_loggia,
                 window_view, appliances, internet_tv, comforts, deposit, monthly_rent,
                 check_in_time, check_out_time, max_guests, contactless_checkin,
                 children_allowed, pets_allowed, smoking_allowed, parties_allowed,
                 documents_provided, total_floors, has_elevator, parking_available) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                 item

@@ -11,4 +11,4 @@ class LocatorAvito:
     COMP = (By.CSS_SELECTOR, ".TTiHl")
     INFO = (By.CSS_SELECTOR, "ul.HRzg1 li.cHzV4")
     LATLON = (By.CSS_SELECTOR, ".V3YQs.j2TYE")
-    VIEWS = (By.CSS_SELECTOR, "")
+    VIEWS = (By.CSS_SELECTOR, "[data-marker='item-view/total-views']")

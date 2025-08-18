@@ -39,6 +39,23 @@ validator = Validator()
 pids = {"main": None}
 
 
+def clean_proc():
+    if pids["main"]:
+        logger.info(f'Finish {pids["main"]=}')
+        try:
+            os.kill(pids["main"], signal.SIGKILL)
+        except ProcessLookupError:
+            logger.info(f"Process {pids['main']} already finished")
+
+    for proc in psutil.process_iter(['pid', 'name']):
+        if proc.info['name'] in ('chrome', 'chromium', 'firefox', 'geckodriver', 'uc_driver'):
+            try:
+                os.kill(proc.info['pid'], signal.SIGKILL)
+                logger.info(f"Finish {proc.info['pid']=}")
+            except:
+                logger.info(f"Exception {proc.info['pid']=}")
+
+
 class AvitoParser:
     def __init__(self,
                  url: list,
@@ -214,7 +231,7 @@ class ExtendedParser(AvitoParser):
         data["comp"] = ''
         data["lat"] = ''
         data["lon"] = ''
-        data["views"] = ''
+        data["views"] = None
 
         data['количество_комнат'] = ''
         data['кровати'] = ''
@@ -250,6 +267,11 @@ class ExtendedParser(AvitoParser):
                 mape = self.driver.find_element(LocatorAvito.LATLON[1], by="css selector")
                 data["lat"] = mape.get_attribute("data-map-lat")
                 data["lon"] = mape.get_attribute("data-map-lon")
+            if self.driver.find_elements(LocatorAvito.VIEWS[1], by="css selector"):
+                views_element = self.driver.find_elements(LocatorAvito.VIEWS[1], by="css selector")[0]
+                views = views_element.text
+                views = int(views.split()[0])
+                data["views"] = views
             if self.driver.find_elements(LocatorAvito.INFO[1], by="css selector"):
                 char_list = self.driver.find_elements(LocatorAvito.INFO[1], by="css selector")
                 for item in char_list:
@@ -325,17 +347,7 @@ def multi_parsing(date_, n, proxy):
 
 @router.post("/post")
 async def main_parser(request: Item):
-    if pids["main"]:
-        logger.info(f'Finish {pids["main"]=}')
-        os.kill(pids["main"], signal.SIGKILL)
-        for proc in psutil.process_iter(['pid', 'name']):
-            if proc.info['name'] in ('chrome', 'chromium', 'firefox', 'geckodriver'):
-                try:
-                    os.kill(proc.info['pid'], signal.SIGKILL)
-                    logger.info(f"Finish {proc.info['pid']=}")
-                except:
-                    logger.info(f"Exception {proc.info['pid']=}")
-        
+    clean_proc()
     proxy = PROXY
     if PROXY and "@" not in PROXY:
         logger.info("Прокси - user:pass@ip:port")
