@@ -1,7 +1,10 @@
 services:
-  postgres:
-    image: postgres:latest
-    container_name: postgres
+  # postgres:
+  postgis:
+    # image: postgres:latest
+    image: postgis/postgis:15-3.3
+    # container_name: postgres
+    container_name: postgis
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin
@@ -9,7 +12,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # - postgres_data:/var/lib/postgresql/data
+      - postgis_data:/var/lib/postgresql/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
   
@@ -27,5 +31,6 @@ services:
       - "host.docker.internal:host-gateway"
 
 volumes:
-  postgres_data:
+  # postgres_data:
+  postgis_data:
   pgadmin_data:

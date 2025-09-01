@@ -1,6 +1,8 @@
 from fastapi import APIRouter
 from loguru import logger
 
+from utils import Item
+
 import asyncio
 import asyncpg
 
@@ -49,6 +51,46 @@ async def get_data(table: str):
         await conn.close()
 
 
+@router.post("/post")
+async def find_radius(request: Item):
+    conn = await asyncpg.connect(**DATABASE_CONFIG)
+    address = request.address
+    radius = request.radius
+    try:
+        query = """
+            SELECT lat::double precision, lon::double precision 
+            FROM coder 
+            WHERE address = $1
+            LIMIT 1
+        """
+        cords = await conn.fetchrow(query, address)
+        if not cords:
+            return {"error": "Адрес не найден в базе данных"}
+        lat = cords['lat']
+        lon = cords['lon']
+        query = """
+            SELECT 
+                address,
+                lat::double precision,
+                lon::double precision,
+                ST_Distance(
+                    geography(ST_MakePoint(lon::double precision, lat::double precision)),
+                    geography(ST_MakePoint($1, $2))
+                ) as distance_meters
+            FROM coder 
+            WHERE ST_DWithin(
+                geography(ST_MakePoint(lon::double precision, lat::double precision)),
+                geography(ST_MakePoint($1, $2)),
+                $3
+            )
+            ORDER BY distance_meters ASC
+        """
+        results = await conn.fetch(query, lon, lat, radius)
+        return [dict(row) for row in results]
+    finally:
+        await conn.close()
+
+
 async def update_address(coder_table="coder"):
     conn = await asyncpg.connect(**DATABASE_CONFIG)
     await conn.execute(f"""
@@ -67,8 +109,9 @@ async def update_address(coder_table="coder"):
             ORDER BY table_name;
         """
         rows = await conn.fetch(query)
-        tables = [row["table_name"] for row in rows if row["table_name"] != coder_table and row["table_name"] != "advertisements_2025_08_14"]
+        tables = [row["table_name"] for row in rows if row["table_name"] != coder_table and row["table_name"] != "geography_columns" and row["table_name"] != "geometry_columns" and row["table_name"] != "spatial_ref_sys"]
         for table in tables:
+            logger.info(f"{table=}")
             addresses = await conn.fetch(f"SELECT DISTINCT address, lat, lon FROM {table}")
             for record in addresses:
                 address = record['address']
@@ -94,4 +137,4 @@ async def update_address(coder_table="coder"):
                         await asyncio.sleep(600)
                 else:
                     logger.info(f"Адрес {address=} уже существует в целевой таблице")
-        await asyncio.sleep(10)
+        await asyncio.sleep(600)

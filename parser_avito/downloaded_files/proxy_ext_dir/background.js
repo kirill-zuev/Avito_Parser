@@ -3,8 +3,8 @@ var config = {
     rules: {
       singleProxy: {
         scheme: "http",
-        host: "82.97.251.114",
-        port: parseInt("14710")
+        host: "fproxy.site",
+        port: parseInt("10048")
       },
     bypassList: [""]
     }

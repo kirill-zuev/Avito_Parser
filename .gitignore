@@ -5,3 +5,4 @@ webui/tools/flutter
 webui/pubspec.lock
 webui/build
 .env
+parser_avito/proxy.txt

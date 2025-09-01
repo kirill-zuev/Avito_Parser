@@ -36,16 +36,18 @@ router = APIRouter()
 
 postgres_handler=PostgresHandler()
 validator = Validator()
-pids = {"main": None}
+
+pids = multiprocessing.Manager().dict()
 
 
 def clean_proc():
-    if pids["main"]:
-        logger.info(f'Finish {pids["main"]=}')
-        try:
-            os.kill(pids["main"], signal.SIGKILL)
-        except ProcessLookupError:
-            logger.info(f"Process {pids['main']} already finished")
+    for pid_key in pids:
+        if pids[pid_key]:
+            logger.info(f'Finish {pid_key}={pids[pid_key]}')
+            try:
+                os.kill(pids[pid_key], signal.SIGKILL)
+            except ProcessLookupError:
+                logger.info(f"Process {pids[pid_key]} ({pid_key}) already finished")
 
     for proc in psutil.process_iter(['pid', 'name']):
         if proc.info['name'] in ('chrome', 'chromium', 'firefox', 'geckodriver', 'uc_driver'):
@@ -160,7 +162,9 @@ class ExtendedParser(AvitoParser):
                 logger.info(f"window.scrollTo(0, document.body.scrollHeight);")
                 pass
             time.sleep(sleep_)
-            self.parse_page()
+            page_ = self.parse_page()
+            if not page_:
+                break
             time.sleep(sleep_)
             self.open_next_btn(i)
     
@@ -168,6 +172,8 @@ class ExtendedParser(AvitoParser):
         all_titles = self.driver.find_elements(LocatorAvito.TITLES[1], by="css selector")
         titles = [title for title in all_titles if "avitoSales" not in title.get_attribute("class")]
         data_from_general_page = []
+        if titles is None:
+            return False
         for title in titles:
             try:
                 name = title.find_element(*LocatorAvito.NAME).text
@@ -219,6 +225,7 @@ class ExtendedParser(AvitoParser):
                 item_info = self.parse_full_page(item_info)
                 item_info["days"] = self.days
                 postgres_handler.update_database(item_info)
+        return True
     
     def parse_full_page(self, data: dict) -> dict:
         self.driver.get(data.get("url"))
@@ -309,19 +316,21 @@ def parse_url(url, today, days, proxy):
 def main(proxy, today, urls=[]):
     processes = []
     try:
-        for item in urls:
+        for item, proxy in zip(urls, proxy[:len(urls)]):
             url, days = item["url"], item["days"]
-            process = threading.Thread(
+            logger.info(f"{url=} {days=}")
+            process = multiprocessing.Process(
                 target=parse_url,
                 args=(url, today, days, proxy)
             )
             process.start()
+            pids[days] = process.pid
             processes = []
             processes.append(process)
             time.sleep(sleep_)
-        
-            for process in processes:
-                process.join()
+    
+        for process in processes:
+            process.join()
     except Exception as error:
         logger.debug(error)
         time.sleep(15)
@@ -348,10 +357,12 @@ def multi_parsing(date_, n, proxy):
 @router.post("/post")
 async def main_parser(request: Item):
     clean_proc()
-    proxy = PROXY
-    if PROXY and "@" not in PROXY:
-        logger.info("Прокси - user:pass@ip:port")
-        proxy = None
+    with open(PROXY, 'r') as file:
+        proxy = file.readlines()
+        proxy = [line.strip() for line in proxy]
+        for p in proxy:
+            if p and "@" not in p:
+                logger.info("Прокси - user:pass@ip:port")
     
     process = multiprocessing.Process(
         target=multi_parsing,
