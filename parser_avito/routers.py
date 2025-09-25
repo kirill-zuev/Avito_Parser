@@ -10,9 +10,9 @@ import re
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from fastapi import APIRouter
-from datetime import datetime
 from seleniumbase import SB
 from loguru import logger
 
@@ -62,7 +62,9 @@ class AvitoParser:
     def __init__(self,
                  url: list,
                  date_: str,
-                 days: int,
+                 today: str,
+                 fast: bool,
+                 days: str,
                  count: int = 5,
                  max_price: int = 0,
                  min_price: int = 0,
@@ -73,6 +75,8 @@ class AvitoParser:
                  ):
         self.url = url
         self.date_ = date_
+        self.today = today
+        self.fast = fast
         self.days = days
         self.count = count
         self.data = []
@@ -206,24 +210,28 @@ class ExtendedParser(AvitoParser):
 
             if not ads_id:
                 continue
+            
+            if self.fast:
+                exit = postgres_handler.exist(ads_id, self.today, self.date_, self.days)
+                if exit:
+                    logger.debug(f"Пропускаю {ads_id=} {url=}")
+                    continue
 
-            if postgres_handler.exist(ads_id, self.days):
-                logger.debug(f"Пропускаю {ads_id=} {url=}")
-                continue
             data = {
                 'date_': self.date_,
                 'name': name,
                 'description': description,
                 'url': url,
                 'price': price,
-                'adsid': ads_id
+                'adsid': ads_id,
+                'today': self.today,
+                'days': self.days
             }
             if self.min_price <= int(price) <= self.max_price:
                 data_from_general_page.append(data)
         if data_from_general_page:
             for item_info in data_from_general_page:
                 item_info = self.parse_full_page(item_info)
-                item_info["days"] = self.days
                 postgres_handler.update_database(item_info)
         return True
     
@@ -233,6 +241,8 @@ class ExtendedParser(AvitoParser):
             logger.info("Доступ ограничен: проблема с IP")
             self.ip_block()
             return self.parse_full_page(data=data)
+
+        texth = data['name']+data['description']
 
         data["rgeo"] = ''
         data["comp"] = ''
@@ -267,13 +277,17 @@ class ExtendedParser(AvitoParser):
             if self.driver.find_elements(LocatorAvito.RGEO[1], by="css selector"):
                 rgeo = self.driver.find_element(LocatorAvito.RGEO[1], by="css selector").text
                 data["rgeo"] = rgeo.lower()
+                texth += data["rgeo"]
             if self.driver.find_elements(LocatorAvito.COMP[1], by="css selector"):
                 comp = self.driver.find_element(LocatorAvito.COMP[1], by="css selector").text
                 data["comp"] = comp.lower()
+                texth += data["comp"]
             if self.driver.find_elements(LocatorAvito.LATLON[1], by="css selector"):
                 mape = self.driver.find_element(LocatorAvito.LATLON[1], by="css selector")
                 data["lat"] = mape.get_attribute("data-map-lat")
                 data["lon"] = mape.get_attribute("data-map-lon")
+                texth += data["lat"]
+                texth += data["lon"]
             if self.driver.find_elements(LocatorAvito.VIEWS[1], by="css selector"):
                 views_element = self.driver.find_elements(LocatorAvito.VIEWS[1], by="css selector")[0]
                 views = views_element.text
@@ -286,6 +300,8 @@ class ExtendedParser(AvitoParser):
                     value = item.text.replace(name + ":", "").strip()
                     key = name.lower().replace(" ", "_")
                     data[key] = value
+                    texth += data[key]
+            data["shash"] = validator.stable_hash(texth)
         except Exception:
             if "Доступ ограничен" in self.driver.get_title():
                 logger.info("Доступ ограничен: проблема с IP")
@@ -295,11 +311,13 @@ class ExtendedParser(AvitoParser):
         return data
 
 
-def parse_url(url, today, days, proxy):
+def parse_url(url, date_, today, fast, days, proxy):
     try:
         ExtendedParser(
             url=url,
-            date_=today,
+            date_=date_,
+            today=today,
+            fast=fast,
             days=days,
             count=int(NUM_ADS),
             max_price=MAX_PRICE,
@@ -313,15 +331,16 @@ def parse_url(url, today, days, proxy):
         logger.debug(f"{error}")
 
 
-def main(proxy, today, urls=[]):
+def main(proxy, date_, today, fast, urls=[]):
     processes = []
     try:
         for item, proxy in zip(urls, proxy[:len(urls)]):
-            url, days = item["url"], item["days"]
-            logger.info(f"{url=} {days=}")
+            url, n_days = item["url"], item["days"]
+            logger.info(f"{url=} {n_days=}")
+            days = date_ + timedelta(days=n_days)
             process = multiprocessing.Process(
                 target=parse_url,
-                args=(url, today, days, proxy)
+                args=(url, date_, today, fast, days, proxy)
             )
             process.start()
             pids[days] = process.pid
@@ -336,19 +355,18 @@ def main(proxy, today, urls=[]):
         time.sleep(15)
 
 
-def multi_parsing(date_, n, proxy):
+def multi_parsing(date_, n, fast, proxy):
     prevd = None
-    today = date_
+    today = datetime.now().date()
     try:
         while True:
             if today != prevd:
                 prevd = today
                 logger.info(f"{prevd}")
-                urls = validator.generate_avito(n, today)
+                urls = validator.generate_avito(n, date_)
                 logger.info(f"{urls}")
-                postgres_handler.create_database(today)
-                main(proxy, today, urls)
-                
+                postgres_handler.create_database()
+                main(proxy, date_, today, fast, urls)   
             today = datetime.now().date()
     except Exception as error:
         logger.debug(f"{error}")
@@ -366,7 +384,7 @@ async def main_parser(request: Item):
     
     process = multiprocessing.Process(
         target=multi_parsing,
-        args=(request.date_, request.n, proxy),
+        args=(request.date_, request.n,  request.fast, proxy),
     )
     process.start()
     pids["main"] = process.pid

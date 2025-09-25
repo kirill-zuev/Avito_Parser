@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel
 from datetime import date
 
+import hashlib
 import base64
 import re
 
@@ -9,6 +10,7 @@ import re
 class Item(BaseModel):
     date_: date
     n: int = 1
+    fast: bool = True
 
 
 class Validator:
@@ -45,3 +47,8 @@ class Validator:
         beds = match.group(3)
 
         return f"{apartment_type}", int(square_meters), int(beds)
+    
+    def stable_hash(self, text) -> str:
+        text_bytes = text.encode('utf-8')
+        hash_object = hashlib.sha256(text_bytes)
+        return hash_object.hexdigest()

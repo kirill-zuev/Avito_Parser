@@ -102,39 +102,31 @@ async def update_address(coder_table="coder"):
     """)
     logger.info(f"Create table {coder_table} if not exists")
     while True:
-        query = """
-            SELECT table_name
-            FROM information_schema.tables
-            WHERE table_schema = 'public'
-            ORDER BY table_name;
-        """
-        rows = await conn.fetch(query)
-        tables = [row["table_name"] for row in rows if row["table_name"] != coder_table and row["table_name"] != "geography_columns" and row["table_name"] != "geometry_columns" and row["table_name"] != "spatial_ref_sys"]
-        for table in tables:
-            logger.info(f"{table=}")
-            addresses = await conn.fetch(f"SELECT DISTINCT address, lat, lon FROM {table}")
-            for record in addresses:
-                address = record['address']
-                exists = await conn.fetchval(
-                    f"SELECT 1 FROM {coder_table} WHERE address = $1", 
-                    address
-                )
-                if not exists:
-                    try:
-                        lat, lon = record['lat'], record['lon']
-                        await conn.execute(
-                            f"""
-                            INSERT INTO {coder_table} (address, lat, lon)
-                            VALUES ($1, $2, $3)
-                            ON CONFLICT (address) DO UPDATE
-                            SET lat = EXCLUDED.lat,
-                                lon = EXCLUDED.lon
-                            """,
-                            address, lat, lon
-                        )
-                        logger.info(f"{lat=}, {lon=}")
-                    except:
-                        await asyncio.sleep(600)
-                else:
-                    logger.info(f"Адрес {address=} уже существует в целевой таблице")
+        table = "ads"
+        logger.info(f"{table=}")
+        addresses = await conn.fetch(f"SELECT DISTINCT address, lat, lon FROM {table}")
+        for record in addresses:
+            address = record['address']
+            exists = await conn.fetchval(
+                f"SELECT 1 FROM {coder_table} WHERE address = $1", 
+                address
+            )
+            if not exists:
+                try:
+                    lat, lon = record['lat'], record['lon']
+                    await conn.execute(
+                        f"""
+                        INSERT INTO {coder_table} (address, lat, lon)
+                        VALUES ($1, $2, $3)
+                        ON CONFLICT (address) DO UPDATE
+                        SET lat = EXCLUDED.lat,
+                            lon = EXCLUDED.lon
+                        """,
+                        address, lat, lon
+                    )
+                    logger.info(f"{lat=}, {lon=}")
+                except:
+                    await asyncio.sleep(600)
+            else:
+                logger.info(f"Адрес {address=} уже существует в целевой таблице")
         await asyncio.sleep(600)
