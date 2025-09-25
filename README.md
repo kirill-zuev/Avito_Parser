@@ -35,7 +35,7 @@ bash reload.sh
 python server.py
 ```
 
-После этого можно отправлять запросы на:
+После этого можно отправлять запросы:
 
 ```
 http://localhost:<port>/
@@ -106,4 +106,5 @@ for item, proxy in zip(urls, proxy[:len(urls)]):
 * Для визуализации используется Superset.
 * Управление парсером — через `routers.py`, расширяемый класс `ExtendedParser`.
 * Вспомогательные инструменты и валидации — в `utils.py`.
+
 * Логика поиска элементов на страницах Avito — в `loactor.py`.
